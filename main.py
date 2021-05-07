@@ -102,8 +102,7 @@ class Particle:
         if random.uniform(0, 1) < 0.6:
             self.position = self.position + self.velocity
         else:
-            # DOBRZE!?!?!?
-            self.position = self.best_position + (1 * random.uniform(0, 1))
+            self.position = self.best_position + (1 * random.gauss(0, 1))
 
         if score < self.best_score:
             self.best_score = score
