@@ -2,7 +2,6 @@ import math
 import random
 
 import numpy as np
-from openpyxl import Workbook
 
 ACCELERATION_MIN = 0.4
 ACCELERATION_MAX = 2
@@ -18,6 +17,7 @@ def linear_interpolation(start, end, coeff):
 
 def square_interpolation(start, end, coeff):
     return end ** coeff + start ** (1 - coeff)
+
 
 def const_function(start, end, coeff):
     return start + end / 2
@@ -135,10 +135,10 @@ class Swarm:
                 best_pos = position
 
         self.best_position = best_pos if best_pos is not None else self.best_position
-        self.actualize_elite_particles()
+        self.update_elite_particles()
         return self.best_score, best_pos
 
-    def actualize_elite_particles(self):
+    def update_elite_particles(self):
         elite_particles = []
         for subswarm in self.subswarms:
             elite_particles.append(subswarm.elite_particle.best_position)
@@ -161,7 +161,7 @@ class SubSwarm:
     def step(self, iteration_ratio):
 
         for particle in self.particles:
-            if particle == self.elite_particle:
+            if particle != self.elite_particle:
                 score, position = particle.step(self.best_position, iteration_ratio)
                 if score < self.best_score:
                     self.best_score = score
@@ -182,7 +182,7 @@ class MSPSOAlgorithm:
 
 
 if __name__ == '__main__':
-    swarm = Swarm(100, 100, 0, 100, griewank_func, square_interpolation, 5)
-    mspso_algorithm = MSPSOAlgorithm(swarm, iterations=2)
+    swarm = Swarm(100, 10, -10, 10, griewank_func, linear_interpolation, 5)
+    mspso_algorithm = MSPSOAlgorithm(swarm, iterations=1000)
     result = mspso_algorithm.run()
     print(result)
