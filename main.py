@@ -2,6 +2,8 @@ import math
 import random
 
 import numpy as np
+import json
+from tqdm import tqdm
 
 ACCELERATION_MIN = 0.4
 ACCELERATION_MAX = 2
@@ -102,7 +104,7 @@ class Particle:
         if random.uniform(0, 1) < 0.6:
             self.position = self.position + self.velocity
         else:
-            self.position = self.best_position + (1 * random.gauss(0, 1))
+            self.position = self.best_position * (1 + random.gauss(0, 1))
 
         if score < self.best_score:
             self.best_score = score
@@ -169,19 +171,123 @@ class SubSwarm:
 
 
 class MSPSOAlgorithm:
-    def __init__(self, swarm: Swarm, iterations: int):
+    def __init__(self, swarm: Swarm, iterations: int, epsilon: float, stop_criterion):
         self.swarm = swarm
         self.iterations = iterations
+        self.epsilon = epsilon
+        self.stop_criterion = stop_criterion
+
+        self.max_iter = 10000
+
+    def iteration_run(self):
+        history = []
+        for i in tqdm(range(self.iterations)):
+            best_score, _ = self.swarm.step(i / self.iterations)
+            history.append(best_score)
+            # print(f'{i}: {best_score}')
+        return best_score, self.iterations, history
+
+    def epsilon_run(self):
+        best_score = math.inf
+        history = []
+        for i in tqdm(range(self.max_iter)):
+            best_score, _ = self.swarm.step(i / self.iterations)
+            history.append(best_score)
+            if best_score < epsilon:
+                return best_score, i, history
+        return best_score, self.max_iter, history
 
     def run(self):
-        for i in range(self.iterations):
-            best_score, _ = self.swarm.step(i / self.iterations)
-            # print(f'{i}: {best_score}')
-        return best_score, self.iterations
+        if self.stop_criterion == 'iteration':
+            return self.iteration_run()
+        else:
+            return self.epsilon_run()
 
+
+# if __name__ == '__main__':
+#     swarm = Swarm(100, 10, -10, 10, griewank_func, linear_interpolation, 5)
+#     mspso_algorithm = MSPSOAlgorithm(swarm, iterations=1000)
+#     result = mspso_algorithm.run()
+#     print(result)
 
 if __name__ == '__main__':
-    swarm = Swarm(100, 10, -10, 10, griewank_func, linear_interpolation, 5)
-    mspso_algorithm = MSPSOAlgorithm(swarm, iterations=1000)
-    result = mspso_algorithm.run()
-    print(result)
+    functions = [
+        {'function': sphere_func,
+         'low_range': -100,
+         'high_range': 100,
+         'epsilon': 0.001,
+         },
+        # {
+        #     'function': leeyao_func,
+        #     'low_range': -10,
+        #     'high_range': 10,
+        #     'epsilon': 0.01,
+        # },
+        # {
+        #     'function': schwefel_func,
+        #     'low_range': -10,
+        #     'high_range': 10,
+        #     'epsilon': 0.000001,
+        # },
+        # {
+        #     'function': f2_func,
+        #     'low_range': -100,
+        #     'high_range': 100,
+        #     'epsilon': 0.0001,
+        # },
+        # {
+        #     'function': griewank_func,
+        #     'low_range': -600,
+        #     'high_range': 600,
+        #     'epsilon': 0.1,
+        # },
+    ]
+
+    dimensions = [5, 20]
+    populations = [100, 500]
+    subwarms_numbers = [5, 20]
+    stop_criterions = ['iteration', 'epsilon']
+
+    for _fun in functions:
+        epsilon = _fun['epsilon']
+        low_range = _fun['low_range']
+        high_range = _fun['high_range']
+        function = _fun['function']
+
+        json_content = {"results": []}
+
+        for dimension in dimensions:
+            for population in populations:
+                for subwarms_number in subwarms_numbers:
+                    for stop_criterion in stop_criterions:
+
+                        dict_result = {
+                            "function": function.__name__,
+                            "dimensions": dimension,
+                            "population_size": population,
+                            "subwarms": subwarms_number,
+                            "criterion": stop_criterion
+                        }
+
+                        scores = []
+                        iterations = []
+                        histories = []
+                        for i in range(1):
+                            print(f'[{i}] Fitness: {function.__name__}, variant: {stop_criterion}, dimensions: {dimension}, population: {population}, subwarms: {subwarms_number}')
+                            swarm = Swarm(population, dimension, low_range, high_range, function, linear_interpolation, subwarms_number)
+
+                            mpso_algorithm = MSPSOAlgorithm(swarm, 1000, epsilon, stop_criterion)
+                            result = mpso_algorithm.run()
+                            scores.append(result[0])
+                            iterations.append(result[1])
+                            histories.append(result[2])
+                            print(f'Score: {result[0]} Iterations: {result[1]}')
+
+                        dict_result['mean_score'] = sum(scores) / len(scores)
+                        dict_result['mean_iterations'] = sum(iterations) / len(iterations)
+                        dict_result['histories'] = histories
+
+                        json_content['results'].append(dict_result)
+
+        with open(f'{function.__name__}.json', 'w') as outfile:
+            json.dump(json_content, outfile)
